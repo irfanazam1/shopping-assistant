@@ -11,74 +11,27 @@ const App = () => {
   const [selectedChoices, setSelectedChoices] = useState([]);
   const [freeTextResponse, setFreeTextResponse] = useState('');
 
-  // Function to send the user's input and choice to the OpenAI API
+  // Function to send the user's input and choice to the server
   const fetchNextQuery = async (userInput, userChoice = null) => {
     try {
-      const messages = [
-        {
-          role: 'system',
-          content: `
-          You are a shopping assistant bot. Guide the user to find the best product by asking questions and providing choices like single choice, multiple choice, or free text based on the user’s needs.
-          Always respond in the following JSON format:
-          {
-            "query": "Next question to ask the user",
-            "type": "single | multiple | free-text",
-            "choices": ["Option 1", "Option 2", "Option 3"]
-          }`,
-        },
-        ...conversationHistory,
-        {
-          role: 'user',
-          content: userChoice ? `${userInput}: ${userChoice}` : userInput,
-        },
-      ];
+      const response = await axios.post('http://localhost:3001/api/fetch-next-query', {
+        userInput,
+        userChoice,
+        conversationHistory,
+      });
 
-      const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          model: 'gpt-4',
-          messages: messages,
-          temperature: 0.7,
-        },
-        {
-          headers: {
-            // auth header auth here
-            'Content-Type': 'application/json',
-          }
-        }
-      );
+      const data = response.data;
 
-      const data = response.data.choices[0].message.content;
-
-      // Attempt to parse the JSON response
-      try {
-        console.log(data);
-        const parsedData = JSON.parse(data);
-        setQuery(parsedData.query);
-        setChoices(parsedData.choices);
-        setInputType(parsedData.type);
-        setSelectedChoices([]);  // Reset selected choices for the next round
-        setFreeTextResponse('');  // Reset free text response for the next round
-        setConversationHistory((prev) => [
-          ...prev,
-          { role: 'user', content: userChoice ? `${userInput}: ${userChoice}` : userInput },
-          { role: 'assistant', content: parsedData.query }
-        ]);
-      } catch (jsonError) {
-        console.warn('Failed to parse JSON:', jsonError, data);
-        // Fallback: Treat response as a query with free-text input type
-        setQuery(data.trim());
-        setChoices([]);
-        setInputType('free-text');
-        setSelectedChoices([]);  // Reset selected choices for the next round
-        setFreeTextResponse('');  // Reset free text response for the next round
-        setConversationHistory((prev) => [
-          ...prev,
-          { role: 'user', content: userChoice ? `${userInput}: ${userChoice}` : userInput },
-          { role: 'assistant', content: data.trim() }
-        ]);
-      }
-
+      setQuery(data.query);
+      setChoices(data.choices);
+      setInputType(data.type);
+      setSelectedChoices([]);  // Reset selected choices for the next round
+      setFreeTextResponse('');  // Reset free text response for the next round
+      setConversationHistory((prev) => [
+        ...prev,
+        { role: 'user', content: userChoice ? `${userInput}: ${userChoice}` : userInput },
+        { role: 'assistant', content: data.query }
+      ]);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
